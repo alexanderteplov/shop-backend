@@ -1,0 +1,60 @@
+openapi: 3.0.0
+components:
+  schemas:
+    ProductByIdResponse:
+      type: object
+      properties:
+        count:
+          type: number
+        description:
+          type: string
+        id:
+          type: string
+        price:
+          type: number
+        title:
+          type: string
+    ProductListResponse:
+      type: array
+      items: '#/components/schemas/ProductByIdResponse'
+    ErrorResponse: {}
+  securitySchemes: {}
+info:
+  title: Magic Shop API
+  description: Magic Shop Open API Documentation
+  version: '1'
+paths:
+  /products:
+    get:
+      operationId: getProductList
+      summary: Return a list of products
+      responses:
+        '200':
+          description: Status 200 Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListResponse'
+        '404':
+          description: Status 404 Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  '/products/{productId}':
+    get:
+      operationId: getProductById
+      summary: Return a list of products
+      responses:
+        '200':
+          description: Status 200 Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductByIdResponse'
+        '404':
+          description: Status 404 Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'

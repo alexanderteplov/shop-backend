@@ -6,7 +6,25 @@ export default {
     {
       http: {
         method: 'get',
-        path: '/products',
+        path: 'products',
+        cors: true,
+        documentation: {
+          summary: 'Return a list of products',
+          methodResponses: [
+            {
+              statusCode: 200,
+              responseModels: {
+                'application/json': 'ProductListResponse'
+              },
+            },
+            {
+              statusCode: 404,
+              responseModels: {
+                'application/json': 'ErrorResponse',
+              },
+            },
+          ],
+        },
       }
     }
   ]
