@@ -1,4 +1,3 @@
-// import schema from './schema';
 import { handlerPath } from 'src/libs/handlerResolver';
 
 export default {
