@@ -4,5 +4,5 @@ export type GetHandlerType = Handler<Omit<APIGatewayProxyEvent, 'body'>, APIGate
 
 export type GetQueryStringHandlerType<QueryParams> = Handler<
   Omit<APIGatewayProxyEvent, 'body' | 'queryStringParameters'> & { queryStringParameters: QueryParams },
-  APIGatewayProxyResult
-  >;
+  Omit<APIGatewayProxyResult, 'body'> & { body?: string }
+>;
