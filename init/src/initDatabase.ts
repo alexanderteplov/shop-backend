@@ -3,7 +3,7 @@ import { Client } from 'pg';
 import { environment as env } from '../../serverless.environment';
 
 export const initDatabase = async () => {
-  const file = __filename.replace('.ts', '.sql');
+  const file = './initDatabase.sql';
   const sql = readFileSync(file, 'utf8');
 
   const clientConfig = {

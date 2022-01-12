@@ -24,7 +24,7 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (event,
   try {
     const { rows: [{ id: productId }] } = await dbClient.query(
       'INSERT INTO products (title, description, price) VALUES ($1, $2, $3) RETURNING id;',
-      [title, description ?? 'NULL', price]
+      [title, description, price]
     );
 
     await dbClient.query(

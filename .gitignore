@@ -105,3 +105,6 @@ dist
 
 # Env
 *.environment.ts
+
+# masOS
+.DS_Store
