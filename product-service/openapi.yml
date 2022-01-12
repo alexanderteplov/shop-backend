@@ -1,7 +1,7 @@
 openapi: 3.0.0
 components:
   schemas:
-    ProductByIdResponse:
+    Product:
       type: object
       properties:
         count:
@@ -16,7 +16,7 @@ components:
           type: string
     ProductListResponse:
       type: array
-      items: '#/components/schemas/ProductByIdResponse'
+      items: '#/components/schemas/Product'
     ErrorResponse: {}
   securitySchemes: {}
 info:
@@ -51,7 +51,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProductByIdResponse'
+                $ref: '#/components/schemas/Product'
         '404':
           description: Status 404 Response
           content:

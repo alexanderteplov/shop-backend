@@ -1,28 +1,26 @@
+// import schema from './schema';
 import { handlerPath } from 'src/libs/handlerResolver';
+import schema from './schema';
 
 export default {
   handler: `${handlerPath(__dirname)}/handler.main`,
   events: [
     {
       http: {
-        method: 'get',
-        path: 'products/{productId}',
+        method: 'post',
+        path: 'products',
         cors: true,
         request: {
-          parameters: {
-            paths: {
-              productId: true,
-            },
+          schemas: {
+            'application/json': schema,
           },
         },
         documentation: {
-          summary: 'Return a list of products',
-          pathParams: [{
-            name: 'productId',
-            schema: {
-              type: 'string',
-            },
-          }],
+          summary: 'Create a new product',
+          requestBody: { description: 'A product object' },
+          requstModels: {
+            'application/json': schema,
+          },
           methodResponses: [
             {
               statusCode: 200,

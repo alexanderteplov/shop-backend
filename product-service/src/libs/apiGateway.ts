@@ -6,13 +6,9 @@ import { UnknownObjectType } from 'src/types';
 type ValidatedAPIGatewayProxyEvent<S> = Omit<APIGatewayProxyEvent, 'body'> & { body: FromSchema<S> }
 export type ValidatedEventAPIGatewayProxyEvent<S> = Handler<ValidatedAPIGatewayProxyEvent<S>, APIGatewayProxyResult>
 
-export const formatJSONResponse = (response: UnknownObjectType | UnknownObjectType[] ) => {
+export const formatJSONResponse = (response: UnknownObjectType | UnknownObjectType[] | string ) => {
   return {
     statusCode: 200,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Credentials': true,
-    },
     body: JSON.stringify(response)
   }
 }
