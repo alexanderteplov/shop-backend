@@ -4,6 +4,10 @@ import {
   CopyObjectCommand,
   DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
+import {
+  SQSClient,
+  SendMessageCommand,
+} from '@aws-sdk/client-sqs';
 import csv from 'csv-parser';
 
 import { formatJSONResponse } from '@libs/apiGateway';
@@ -14,52 +18,60 @@ import { Handler, S3Event } from 'aws-lambda';
 import createError from 'http-errors';
 
 const importFileParser: Handler<S3Event> = async (event) => {
-  const eventObjectKey = event.Records[0].s3.object.key;
+  for await (const { s3 } of event.Records) {
+    const s3ObjectKey = s3.object.key;
 
-  const BUCKET = 'magic-files';
+    const BUCKET = 'magic-files';
 
-  const client = new S3Client({ region: 'eu-west-1' });
+    const client = new S3Client({ region: 'eu-west-1' });
 
-  const getObject = new GetObjectCommand({
-    Bucket: BUCKET,
-    Key: eventObjectKey,
-  });
+    const getObject = new GetObjectCommand({
+      Bucket: BUCKET,
+      Key: s3ObjectKey,
+    });
 
-  const copyObject = new CopyObjectCommand({
-    Bucket: BUCKET,
-    Key: eventObjectKey.replace('uploaded/', 'parsed/'),
-    CopySource: `${BUCKET}/${eventObjectKey}`,
-  });
+    const copyObject = new CopyObjectCommand({
+      Bucket: BUCKET,
+      Key: s3ObjectKey.replace('uploaded/', 'parsed/'),
+      CopySource: `${BUCKET}/${s3ObjectKey}`,
+    });
 
-  const deleteObject = new DeleteObjectCommand({
-    Bucket: BUCKET,
-    Key: eventObjectKey,
-  });
+    const deleteObject = new DeleteObjectCommand({
+      Bucket: BUCKET,
+      Key: s3ObjectKey,
+    });
 
-  const pipeline = promisify(stream.pipeline);
+    const pipeline = promisify(stream.pipeline);
 
-  const transformStream = new stream.Transform({
-    transform: (json: Record<string, string>, _, callback) => {
-      console.log(json);
-      callback(null, json);
-    },
-    objectMode: true,
-  });
+    const sqs = new SQSClient({ region: 'eu-west-1' });
 
-  try {
-    const { Body } = await client.send(getObject);
+    const transformStream = new stream.Transform({
+      transform: (json: Record<string, string>, _, callback) => {
+        const sendMessage = new SendMessageCommand({
+          QueueUrl: process.env.SQS_URL,
+          MessageBody: JSON.stringify(json),
+        });
+        sqs.send(sendMessage)
+        callback(null, json);
+      },
+      objectMode: true,
+    });
 
-    await pipeline(
-      Body,
-      csv(),
-      transformStream,
-    );
+    try {
+      const { Body } = await client.send(getObject);
 
-    await client.send(copyObject);
-    await client.send(deleteObject);
-  } catch (error) {
-    console.error(error);
-    throw createError(500);
+      await pipeline(
+        Body,
+        csv(),
+        transformStream,
+      );
+
+      await client.send(copyObject);
+      await client.send(deleteObject);
+    } catch (error) {
+      console.error(error);
+      throw createError(500);
+    }
   }
 
   return formatJSONResponse();

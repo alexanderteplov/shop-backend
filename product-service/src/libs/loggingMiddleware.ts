@@ -6,7 +6,7 @@ export const loggingMiddleware = (): middy.MiddlewareObj<APIGatewayProxyEvent, A
     console.log('Incoming request:', request);
   };
   const after: middy.MiddlewareFn<APIGatewayProxyEvent, APIGatewayProxyResult> = async (request) => {
-    console.log('Outcoming response:', request);
+    console.log('Outcoming response:', request.response);
   };
 
   return {
