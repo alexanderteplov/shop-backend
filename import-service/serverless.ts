@@ -3,6 +3,16 @@ import type { AWS } from '@serverless/typescript';
 import { importProductsFile, importFileParser, catalogBatchProcess } from '@functions';
 import { environment } from '../serverless.environment';
 
+const {
+  DB_HOST,
+  DB_PORT,
+  DB_NAME,
+  DB_USER,
+  DB_PASSWORD,
+  ADMIN_EMAIL,
+  BOT_EMAIL,
+} = environment;
+
 const serverlessConfiguration: AWS = {
   service: 'import-service',
   frameworkVersion: '2',
@@ -24,7 +34,7 @@ const serverlessConfiguration: AWS = {
       SNSSubscriptionRegular: {
         Type: 'AWS::SNS::Subscription',
         Properties: {
-          Endpoint: 'vash.a2cat@gmail.com',
+          Endpoint: BOT_EMAIL,
           Protocol: 'email',
           TopicArn: {
             Ref: 'SNSTopic',
@@ -37,7 +47,7 @@ const serverlessConfiguration: AWS = {
       SNSSubscriptionHighPrice: {
         Type: 'AWS::SNS::Subscription',
         Properties: {
-          Endpoint: 'a.v.teplov@gmail.com',
+          Endpoint: ADMIN_EMAIL,
           Protocol: 'email',
           TopicArn: {
             Ref: 'SNSTopic',
@@ -90,7 +100,11 @@ const serverlessConfiguration: AWS = {
       shouldStartNameWithService: true,
     },
     environment: {
-      ...environment,
+      DB_HOST,
+      DB_PORT,
+      DB_NAME,
+      DB_USER,
+      DB_PASSWORD,
       AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
       NODE_OPTIONS: '--enable-source-maps --stack-trace-limit=1000',
       SQS_URL: {

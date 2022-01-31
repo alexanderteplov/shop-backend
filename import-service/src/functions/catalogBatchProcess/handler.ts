@@ -1,9 +1,16 @@
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
+import { Handler, SQSEvent } from 'aws-lambda';
+import createError from 'http-errors';
+import { Client as PgClient } from 'pg';
 
 import { formatJSONResponse } from '@libs/apiGateway';
 import { middyfy } from '@libs/lambda';
-import { Handler, SQSEvent } from 'aws-lambda';
-import createError from 'http-errors';
+
+type CatalogBatchProcessParameters = {
+  dbClient: PgClient,
+  snsClient: SNSClient,
+  event: SQSEvent,
+};
 
 const getValues = (fieldsNum: number, rowsNum: number) => {
   let values = '';
@@ -17,16 +24,15 @@ const getValues = (fieldsNum: number, rowsNum: number) => {
   return values;
 };
 
-const catalogBatchProcess: Handler<SQSEvent> = async (event, context) => {
-  const { dbClient } = context.clientContext.Custom;
-  const client = new SNSClient({ region: 'eu-west-1' });
+const getProductsFromEvent = (event: SQSEvent) => event.Records.reduce((acc, { body }) => {
+  const { title, description, price, count } = JSON.parse(body);
+  acc.productFieldsList.push(title, description, price);
+  acc.countList.push(count);
+  return acc;
+}, { productFieldsList: [], countList: [] });
 
-  const { productFieldsList, countList } = event.Records.reduce((acc, { body }) => {
-    const { title, description, price, count } = JSON.parse(body);
-    acc.productFieldsList.push(title, description, price);
-    acc.countList.push(count);
-    return acc;
-  }, { productFieldsList: [], countList: [] });
+const catalogBatchProcess = async ({ dbClient, snsClient, event }: CatalogBatchProcessParameters) => {
+  const { productFieldsList, countList } = getProductsFromEvent(event);
 
   await dbClient.query('BEGIN;');
   try {
@@ -63,7 +69,7 @@ const catalogBatchProcess: Handler<SQSEvent> = async (event, context) => {
         },
       };
       const publishCommand = new PublishCommand(publishCommandInput);
-      return client.send(publishCommand);
+      return snsClient.send(publishCommand);
     });
     await Promise.allSettled(promises);
   } catch (error) {
@@ -71,8 +77,15 @@ const catalogBatchProcess: Handler<SQSEvent> = async (event, context) => {
     await dbClient.query('ROLLBACK;');
     throw createError(500);
   }
+}
+
+const handler: Handler<SQSEvent> = async (event, context) => {
+  const { dbClient } = context.clientContext.Custom;
+  const snsClient = new SNSClient({ region: 'eu-west-1' });
+
+  await catalogBatchProcess({ dbClient, snsClient, event });
 
   return formatJSONResponse();
 }
 
-export const main = middyfy(catalogBatchProcess);
+export const main = middyfy(handler);

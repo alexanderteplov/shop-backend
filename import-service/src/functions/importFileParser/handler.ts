@@ -17,13 +17,17 @@ import { promisify } from 'util';
 import { Handler, S3Event } from 'aws-lambda';
 import createError from 'http-errors';
 
-const importFileParser: Handler<S3Event> = async (event) => {
+type ImportFileParserParameters = {
+  s3Client: S3Client,
+  sqsClient: SQSClient,
+  event: S3Event,
+};
+
+const BUCKET = 'magic-files';
+
+const importFileParser = async ({ s3Client, sqsClient, event }: ImportFileParserParameters) => {
   for await (const { s3 } of event.Records) {
     const s3ObjectKey = s3.object.key;
-
-    const BUCKET = 'magic-files';
-
-    const client = new S3Client({ region: 'eu-west-1' });
 
     const getObject = new GetObjectCommand({
       Bucket: BUCKET,
@@ -43,22 +47,20 @@ const importFileParser: Handler<S3Event> = async (event) => {
 
     const pipeline = promisify(stream.pipeline);
 
-    const sqs = new SQSClient({ region: 'eu-west-1' });
-
     const transformStream = new stream.Transform({
       transform: (json: Record<string, string>, _, callback) => {
         const sendMessage = new SendMessageCommand({
           QueueUrl: process.env.SQS_URL,
           MessageBody: JSON.stringify(json),
         });
-        sqs.send(sendMessage)
+        sqsClient.send(sendMessage)
         callback(null, json);
       },
       objectMode: true,
     });
 
     try {
-      const { Body } = await client.send(getObject);
+      const { Body } = await s3Client.send(getObject);
 
       await pipeline(
         Body,
@@ -66,15 +68,22 @@ const importFileParser: Handler<S3Event> = async (event) => {
         transformStream,
       );
 
-      await client.send(copyObject);
-      await client.send(deleteObject);
+      await s3Client.send(copyObject);
+      await s3Client.send(deleteObject);
     } catch (error) {
       console.error(error);
       throw createError(500);
     }
   }
+}
+
+const handler: Handler<S3Event> = async (event) => {
+  const s3Client = new S3Client({ region: 'eu-west-1' });
+  const sqsClient = new SQSClient({ region: 'eu-west-1' });
+
+  await importFileParser({ s3Client, sqsClient, event });
 
   return formatJSONResponse();
 }
 
-export const main = middyfy(importFileParser);
+export const main = middyfy(handler);
