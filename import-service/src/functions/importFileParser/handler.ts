@@ -4,6 +4,10 @@ import {
   CopyObjectCommand,
   DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
+import {
+  SQSClient,
+  SendMessageCommand,
+} from '@aws-sdk/client-sqs';
 import csv from 'csv-parser';
 
 import { formatJSONResponse } from '@libs/apiGateway';
@@ -13,56 +17,73 @@ import { promisify } from 'util';
 import { Handler, S3Event } from 'aws-lambda';
 import createError from 'http-errors';
 
-const importFileParser: Handler<S3Event> = async (event) => {
-  const eventObjectKey = event.Records[0].s3.object.key;
+type ImportFileParserParameters = {
+  s3Client: S3Client,
+  sqsClient: SQSClient,
+  event: S3Event,
+};
 
-  const BUCKET = 'magic-files';
+const BUCKET = 'magic-files';
 
-  const client = new S3Client({ region: 'eu-west-1' });
+const importFileParser = async ({ s3Client, sqsClient, event }: ImportFileParserParameters) => {
+  for await (const { s3 } of event.Records) {
+    const s3ObjectKey = s3.object.key;
 
-  const getObject = new GetObjectCommand({
-    Bucket: BUCKET,
-    Key: eventObjectKey,
-  });
+    const getObject = new GetObjectCommand({
+      Bucket: BUCKET,
+      Key: s3ObjectKey,
+    });
 
-  const copyObject = new CopyObjectCommand({
-    Bucket: BUCKET,
-    Key: eventObjectKey.replace('uploaded/', 'parsed/'),
-    CopySource: `${BUCKET}/${eventObjectKey}`,
-  });
+    const copyObject = new CopyObjectCommand({
+      Bucket: BUCKET,
+      Key: s3ObjectKey.replace('uploaded/', 'parsed/'),
+      CopySource: `${BUCKET}/${s3ObjectKey}`,
+    });
 
-  const deleteObject = new DeleteObjectCommand({
-    Bucket: BUCKET,
-    Key: eventObjectKey,
-  });
+    const deleteObject = new DeleteObjectCommand({
+      Bucket: BUCKET,
+      Key: s3ObjectKey,
+    });
 
-  const pipeline = promisify(stream.pipeline);
+    const pipeline = promisify(stream.pipeline);
 
-  const transformStream = new stream.Transform({
-    transform: (json: Record<string, string>, _, callback) => {
-      console.log(json);
-      callback(null, json);
-    },
-    objectMode: true,
-  });
+    const transformStream = new stream.Transform({
+      transform: (json: Record<string, string>, _, callback) => {
+        const sendMessage = new SendMessageCommand({
+          QueueUrl: process.env.SQS_URL,
+          MessageBody: JSON.stringify(json),
+        });
+        sqsClient.send(sendMessage)
+        callback(null, json);
+      },
+      objectMode: true,
+    });
 
-  try {
-    const { Body } = await client.send(getObject);
+    try {
+      const { Body } = await s3Client.send(getObject);
 
-    await pipeline(
-      Body,
-      csv(),
-      transformStream,
-    );
+      await pipeline(
+        Body,
+        csv(),
+        transformStream,
+      );
 
-    await client.send(copyObject);
-    await client.send(deleteObject);
-  } catch (error) {
-    console.error(error);
-    throw createError(500);
+      await s3Client.send(copyObject);
+      await s3Client.send(deleteObject);
+    } catch (error) {
+      console.error(error);
+      throw createError(500);
+    }
   }
+}
+
+const handler: Handler<S3Event> = async (event) => {
+  const s3Client = new S3Client({ region: 'eu-west-1' });
+  const sqsClient = new SQSClient({ region: 'eu-west-1' });
+
+  await importFileParser({ s3Client, sqsClient, event });
 
   return formatJSONResponse();
 }
 
-export const main = middyfy(importFileParser);
+export const main = middyfy(handler);

@@ -9,17 +9,26 @@ type QueryParamsType = {
   name: string,
 };
 
-const importProductsFile: GetQueryStringHandlerType<QueryParamsType> = async ({ queryStringParameters: { name } }) => {
-  const client = new S3Client({ region: 'eu-west-1' });
+type ImportProductsFileParameters = {
+  client: S3Client,
+  name: string,
+};
+
+const importProductsFile = async ({ client, name }: ImportProductsFileParameters) => {
   const command = new PutObjectCommand({
     Bucket: 'magic-files',
     Key: `uploaded/${name}`,
     ContentType: 'text/csv',
   });
 
-  const signedUrl = await getSignedUrl(client, command, { expiresIn: 60 });
+  return await getSignedUrl(client, command, { expiresIn: 60 });
+}
+
+const handler: GetQueryStringHandlerType<QueryParamsType> = async ({ queryStringParameters: { name } }) => {
+  const client = new S3Client({ region: 'eu-west-1' });
+  const signedUrl = await importProductsFile({ client, name });
 
   return formatJSONResponse(signedUrl);
 }
 
-export const main = middyfy(importProductsFile);
+export const main = middyfy(handler);
