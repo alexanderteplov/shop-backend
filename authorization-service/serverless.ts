@@ -1,43 +1,41 @@
 import type { AWS } from '@serverless/typescript';
 
-import { getProductById, getProductList, createProduct } from '@functions';
-
-import { documentation } from 'serverless.documentation';
-import { dbEnv } from '../env/db.env';
+import basicAuthorizer from '@functions/basicAuthorizer';
+import { authEnv } from './env';
 
 const serverlessConfiguration: AWS = {
-  service: 'product-service',
+  service: 'authorization-service',
   frameworkVersion: '2',
-  plugins: [
-    'serverless-esbuild',
-    'serverless-openapi-documentation',
-  ],
+  plugins: ['serverless-esbuild'],
   provider: {
     name: 'aws',
     runtime: 'nodejs14.x',
+    region: 'eu-west-1',
     apiGateway: {
       minimumCompressionSize: 1024,
       shouldStartNameWithService: true,
     },
-    environment: dbEnv,
+    environment: {
+      ...authEnv,
+      AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
+      NODE_OPTIONS: '--enable-source-maps --stack-trace-limit=1000',
+    },
     lambdaHashingVersion: '20201221',
-    region: 'eu-west-1',
   },
   // import the function via paths
-  functions: { getProductList, getProductById, createProduct },
+  functions: { basicAuthorizer },
   package: { individually: true },
   custom: {
     esbuild: {
       bundle: true,
-      minify: true,
+      minify: false,
       sourcemap: true,
-      exclude: ['aws-sdk', 'pg-native'],
+      exclude: ['aws-sdk'],
       target: 'node14',
       define: { 'require.resolve': undefined },
       platform: 'node',
       concurrency: 10,
     },
-    documentation,
   },
 };
 
