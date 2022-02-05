@@ -104,7 +104,10 @@ dist
 .tern-port
 
 # Env
-*.environment.ts
+*env.ts
 
 # masOS
 .DS_Store
+
+# map files
+*.js.map

@@ -1,17 +1,10 @@
 import type { AWS } from '@serverless/typescript';
 
 import { importProductsFile, importFileParser, catalogBatchProcess } from '@functions';
-import { environment } from '../serverless.environment';
+import { dbEnv } from '../env/db.env';
+import { emailEnv } from '../env/email.env';
 
-const {
-  DB_HOST,
-  DB_PORT,
-  DB_NAME,
-  DB_USER,
-  DB_PASSWORD,
-  ADMIN_EMAIL,
-  BOT_EMAIL,
-} = environment;
+const { ADMIN_EMAIL, BOT_EMAIL } = emailEnv;
 
 const serverlessConfiguration: AWS = {
   service: 'import-service',
@@ -100,11 +93,7 @@ const serverlessConfiguration: AWS = {
       shouldStartNameWithService: true,
     },
     environment: {
-      DB_HOST,
-      DB_PORT,
-      DB_NAME,
-      DB_USER,
-      DB_PASSWORD,
+      ...dbEnv,
       AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
       NODE_OPTIONS: '--enable-source-maps --stack-trace-limit=1000',
       SQS_URL: {
